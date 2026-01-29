@@ -40,6 +40,25 @@
     </div>
 </div>
 <script>
+// 1. 先在 fetchStocks 函數外面定義繪圖函數
+function generateSparkline(data) {
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = max - min;
+    const width = 100;
+    const height = 30;
+    
+    const points = data.map((val, i) => {
+        const x = (i / (data.length - 1)) * width;
+        const y = height - ((val - min) / range) * height;
+        return `${x},${y}`;
+    }).join(' ');
+    
+    return `<svg width="${width}" height="${height}" class="overflow-visible">
+              <polyline fill="none" stroke="#60a5fa" stroke-width="2" points="${points}" />
+            </svg>`;
+}
+
     async function refreshStocks() {
         try {
             const response = await fetch('https://stock-dashboard-3l75.onrender.com/api/stocks');
@@ -50,46 +69,50 @@
             
             container.innerHTML = ''; // 清空載入中文字
 
-            stocks.forEach(stock => {
-const profitColor = stock.profit_pct >= 0 ? 'text-red-500' : 'text-green-500'; // 台股邏輯
-const signalBg = stock.signal === '突破關注' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-gray-700 text-gray-300';            
-                const card = `
-                <div class="flex justify-between mt-2">
-        <span class="text-xs ${profitColor} font-bold">損益：${stock.profit_pct}%</span>
-        <span class="px-2 py-0.5 rounded text-[10px] ${signalBg}">${stock.signal}</span>
-    </div>
-                    <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
-                        <div class="flex justify-between items-center mb-4">
-                            <div>
-                                <h4 class="font-bold text-xl text-white">${stock.name}</h4>
-                                <span class="text-xs text-gray-500">${stock.symbol} | 今日量: ${stock.volume.toLocaleString()}</span>
-                            </div>
-                            <div class="text-2xl font-mono text-blue-400 font-bold">${stock.price}</div>
-                        </div>
+stocks.forEach(stock => {
+    // 判斷漲跌顏色
+    const dailyColor = stock.change_daily >= 0 ? 'text-red-500' : 'text-green-500';
+    
+    const card = `
+        <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h4 class="font-bold text-xl text-white">${stock.name}</h4>
+                    <span class="text-xs text-gray-500">${stock.symbol}</span>
+                </div>
+                <div class="flex flex-col items-end">
+                    <div class="text-2xl font-mono text-white font-bold">${stock.price}</div>
+                    <div class="${dailyColor} text-xs font-bold">今日 ${stock.change_daily}%</div>
+                    <div class="mt-2 bg-gray-900/50 p-1 rounded">${generateSparkline(stock.sparkline)}</div>
+                </div>
+            </div>
 
-                        <div class="grid grid-cols-3 gap-4 py-3 border-t border-gray-700 mt-2">
-                            <div class="text-center">
-                                <p class="text-[10px] text-gray-400 uppercase font-black mb-1">近半年</p>
-                                <p class="text-xs text-red-400">高 ${stock.max_6m}</p>
-                                <p class="text-xs text-green-400">低 ${stock.min_6m}</p>
-                            </div>
-                            <div class="text-center border-x border-gray-700">
-                                <p class="text-[10px] text-gray-400 uppercase font-black mb-1">近一年</p>
-                                <p class="text-xs text-red-400">高 ${stock.max_1y}</p>
-                                <p class="text-xs text-green-400">低 ${stock.min_1y}</p>
-                            </div>
-                            <div class="text-center">
-                                <p class="text-[10px] text-gray-400 uppercase font-black mb-1">歷史紀錄</p>
-                                <p class="text-xs text-red-400">高 ${stock.max_hist}</p>
-                                <p class="text-xs text-green-400">低 ${stock.min_hist}</p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-
-                container.innerHTML += card;
-            });
+            <div class="grid grid-cols-4 gap-2 py-3 border-t border-gray-700 mt-2">
+                <div class="text-center">
+                    <p class="text-[9px] text-gray-400 uppercase font-black mb-1">近一週</p>
+                    <p class="text-[10px] text-red-400">高 ${stock.max_1w}</p>
+                    <p class="text-[10px] text-green-400">低 ${stock.min_1w}</p>
+                </div>
+                <div class="text-center border-x border-gray-700">
+                    <p class="text-[9px] text-gray-400 uppercase font-black mb-1">近三月</p>
+                    <p class="text-[10px] text-red-400">高 ${stock.max_3m}</p>
+                    <p class="text-[10px] text-green-400">低 ${stock.min_3m}</p>
+                </div>
+                <div class="text-center border-r border-gray-700">
+                    <p class="text-[9px] text-gray-400 uppercase font-black mb-1">近半年</p>
+                    <p class="text-[10px] text-red-400">高 ${stock.max_6m}</p>
+                    <p class="text-[10px] text-green-400">低 ${stock.min_6m}</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-[9px] text-gray-400 uppercase font-black mb-1">近一年</p>
+                    <p class="text-[10px] text-red-400">高 ${stock.max_1y}</p>
+                    <p class="text-[10px] text-green-400">低 ${stock.min_1y}</p>
+                </div>
+            </div>
+        </div>
+    `;
+    container.innerHTML += card;
+});
         } catch (error) {
             console.error('抓取失敗:', error);
             document.getElementById('stock-list').innerHTML = '<p class="text-red-500">無法連線至後端 API，請確認 Python 是否正在執行。</p>';
@@ -108,4 +131,5 @@ const signalBg = stock.signal === '突破關注' ? 'bg-yellow-900/50 text-yellow
 </body>
 
 </html>
+
 

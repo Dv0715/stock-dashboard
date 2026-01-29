@@ -13,6 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
 import pandas as pd
 
+
+
+
 # 解決憑證問題
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -34,36 +37,51 @@ MY_PORTFOLIO = {
     "00878.TW": {"name": "國泰永續高股息"}
 }
 
+
+
 @app.get("/api/stocks")
+
 def get_stocks():
+    
     results = []
     for symbol, info in MY_PORTFOLIO.items():
         try:
             stock = yf.Ticker(symbol)
             # 抓取歷史至今所有數據
             hist_all = stock.history(period="max")
+            if hist_all.empty: continue
             
-            if hist_all.empty or len(hist_all) < 252:
-                continue
-                
+            # 定義不同時間段 (交易日約略計算)
             hist_1y = hist_all.tail(252)
             hist_6m = hist_all.tail(126)
+            hist_3m = hist_all.tail(63)  # 近三個月
+            hist_1w = hist_all.tail(5)   # 近一週
             
             current_price = hist_all['Close'].iloc[-1]
+            prev_close = hist_all['Close'].iloc[-2]
+            
+            # 走勢圖數據：取最近 30 天的收盤價
+            sparkline_data = hist_all['Close'].tail(30).tolist()
             
             results.append({
                 "symbol": symbol,
                 "name": info['name'],
                 "price": round(current_price, 2),
+                "change_daily": round(((current_price - prev_close) / prev_close) * 100, 2),
                 "volume": int(hist_all['Volume'].iloc[-1]),
+                # 高低點網格數據
+                "max_1w": round(hist_1w['High'].max(), 2),
+                "min_1w": round(hist_1w['Low'].min(), 2),
+                "max_3m": round(hist_3m['High'].max(), 2),
+                "min_3m": round(hist_3m['Low'].min(), 2),
                 "max_6m": round(hist_6m['High'].max(), 2),
                 "min_6m": round(hist_6m['Low'].min(), 2),
                 "max_1y": round(hist_1y['High'].max(), 2),
                 "min_1y": round(hist_1y['Low'].min(), 2),
-                "max_hist": round(hist_all['High'].max(), 2),
-                "min_hist": round(hist_all['Low'].min(), 2),
+                "sparkline": sparkline_data
             })
+            
         except Exception as e:
-            print(f"抓取 {symbol} 失敗: {e}")
-            continue
+            print(f"Error {symbol}: {e}")
+            
     return results
