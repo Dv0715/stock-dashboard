@@ -40,11 +40,11 @@
     </div>
 </div>
 <script>
-// 1. 先在 fetchStocks 函數外面定義繪圖函數
-function generateSparkline(data) {
+// 1. 繪圖函數：專門負責生成 SVG 走勢線
+function drawSparkline(data) {
     const min = Math.min(...data);
     const max = Math.max(...data);
-    const range = max - min;
+    const range = (max - min) === 0 ? 1 : (max - min); // 防止除以零
     const width = 100;
     const height = 30;
     
@@ -59,68 +59,92 @@ function generateSparkline(data) {
             </svg>`;
 }
 
-    async function refreshStocks() {
-        try {
-            const response = await fetch('https://stock-dashboard-3l75.onrender.com/api/stocks');
-            const stocks = await response.json();
-            
-            const container = document.getElementById('stock-list');
-            if (!container) return; // 安全檢查
-            
-            container.innerHTML = ''; // 清空載入中文字
+async function refreshStocks() {
+    try {
+        const response = await fetch('https://stock-dashboard-3l75.onrender.com/api/stocks');
+        const stocks = await response.json();
+        
+        const container = document.getElementById('stock-list');
+        if (!container) return;
+        
+        container.innerHTML = ''; 
 
-stocks.forEach(stock => {
-    // 判斷漲跌顏色
-    const dailyColor = stock.change_daily >= 0 ? 'text-red-500' : 'text-green-500';
-    
-    const card = `
-        <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
-            <div class="flex justify-between items-start mb-4">
-                <div>
-                    <h4 class="font-bold text-xl text-white">${stock.name}</h4>
-                    <span class="text-xs text-gray-500">${stock.symbol}</span>
-                </div>
-                <div class="flex flex-col items-end">
-                    <div class="text-2xl font-mono text-white font-bold">${stock.price}</div>
-                    <div class="${dailyColor} text-xs font-bold">今日 ${stock.change_daily}%</div>
-                    <div class="mt-2 bg-gray-900/50 p-1 rounded">${generateSparkline(stock.sparkline)}</div>
-                </div>
-            </div>
+        // 2. 計算總額
+        let totalMarketValue = 0;
+        stocks.forEach(s => {
+            if (s.market_value) totalMarketValue += s.market_value;
+        });
+        
+        // 更新看板數字
+        document.querySelector('h2').innerText = `$${totalMarketValue.toLocaleString()}`;
 
-            <div class="grid grid-cols-4 gap-2 py-3 border-t border-gray-700 mt-2">
-                <div class="text-center">
-                    <p class="text-[9px] text-gray-400 uppercase font-black mb-1">近一週</p>
-                    <p class="text-[10px] text-red-400">高 ${stock.max_1w}</p>
-                    <p class="text-[10px] text-green-400">低 ${stock.min_1w}</p>
+        // 3. 渲染個股卡片
+        stocks.forEach(stock => {
+            const dailyColor = stock.change_daily >= 0 ? 'text-red-500' : 'text-green-500';
+            const profitColor = stock.profit_pct >= 0 ? 'text-red-500' : 'text-green-500';
+
+            // 計算一年水位比例尺
+            const range1y = stock.max_1y - stock.min_1y;
+            const pos = ((stock.price - stock.min_1y) / range1y) * 100;
+
+            const card = `
+                <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h4 class="font-bold text-xl text-white">${stock.name}</h4>
+                            <span class="text-xs ${profitColor} font-bold">總損益: ${stock.profit_pct}%</span>
+                        </div>
+                        <div class="flex flex-col items-end">
+                            <div class="text-2xl font-mono text-white font-bold">${stock.price}</div>
+                            <div class="${dailyColor} text-xs font-bold">今日 ${stock.change_daily}%</div>
+                            <div class="mt-2 bg-gray-900/50 p-1 rounded">${drawSparkline(stock.sparkline)}</div>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 px-1 mb-4">
+                        <div class="flex justify-between text-[8px] text-gray-500 mb-1">
+                            <span>一年最低 ${stock.min_1y}</span>
+                            <span>一年最高 ${stock.max_1y}</span>
+                        </div>
+                        <div class="w-full h-1 bg-gray-700 rounded-full relative">
+                            <div class="absolute h-2 w-2 bg-blue-500 rounded-full -top-0.5" style="left: ${pos}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-4 gap-2 py-3 border-t border-gray-700">
+                        <div class="text-center">
+                            <p class="text-[9px] text-gray-400 font-black">近一週</p>
+                            <p class="text-[10px] text-red-400">H ${stock.max_1w}</p>
+                            <p class="text-[10px] text-green-400">L ${stock.min_1w}</p>
+                        </div>
+                        <div class="text-center border-x border-gray-700">
+                            <p class="text-[9px] text-gray-400 font-black">近三月</p>
+                            <p class="text-[10px] text-red-400">H ${stock.max_3m}</p>
+                            <p class="text-[10px] text-green-400">L ${stock.min_3m}</p>
+                        </div>
+                        <div class="text-center border-r border-gray-700">
+                            <p class="text-[9px] text-gray-400 font-black">近半年</p>
+                            <p class="text-[10px] text-red-400">H ${stock.max_6m}</p>
+                            <p class="text-[10px] text-green-400">L ${stock.min_6m}</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-[9px] text-gray-400 font-black">近一年</p>
+                            <p class="text-[10px] text-red-400">H ${stock.max_1y}</p>
+                            <p class="text-[10px] text-green-400">L ${stock.min_1y}</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="text-center border-x border-gray-700">
-                    <p class="text-[9px] text-gray-400 uppercase font-black mb-1">近三月</p>
-                    <p class="text-[10px] text-red-400">高 ${stock.max_3m}</p>
-                    <p class="text-[10px] text-green-400">低 ${stock.min_3m}</p>
-                </div>
-                <div class="text-center border-r border-gray-700">
-                    <p class="text-[9px] text-gray-400 uppercase font-black mb-1">近半年</p>
-                    <p class="text-[10px] text-red-400">高 ${stock.max_6m}</p>
-                    <p class="text-[10px] text-green-400">低 ${stock.min_6m}</p>
-                </div>
-                <div class="text-center">
-                    <p class="text-[9px] text-gray-400 uppercase font-black mb-1">近一年</p>
-                    <p class="text-[10px] text-red-400">高 ${stock.max_1y}</p>
-                    <p class="text-[10px] text-green-400">低 ${stock.min_1y}</p>
-                </div>
-            </div>
-        </div>
-    `;
-    container.innerHTML += card;
-});
-        } catch (error) {
-            console.error('抓取失敗:', error);
-            document.getElementById('stock-list').innerHTML = '<p class="text-red-500">無法連線至後端 API，請確認 Python 是否正在執行。</p>';
-        }
+            `;
+            container.innerHTML += card;
+        });
+    } catch (error) {
+        console.error('抓取失敗:', error);
+        document.getElementById('stock-list').innerHTML = '<p class="text-red-500 text-center">連線中，請稍候...(Render 喚醒中)</p>';
     }
+}
 
-    refreshStocks();
-    setInterval(refreshStocks, 60000);
+refreshStocks();
+setInterval(refreshStocks, 60000);
 </script>
 
 

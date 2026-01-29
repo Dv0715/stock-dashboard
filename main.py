@@ -28,60 +28,59 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 你的持股資料
+# 更新你的持股字典 (填入你之前 Excel 中的數據)
 MY_PORTFOLIO = {
-    "0050.TW": {"name": "元大台灣50"},
-    "0056.TW": {"name": "元大高股息"},
-    "006208.TW": {"name": "富邦台50"},
-    "00679B.TW": {"name": "元大美債20年"},
-    "00878.TW": {"name": "國泰永續高股息"}
+    "0050.TW": {"name": "元大台灣50", "avg_cost": 50.99, "shares": 2170},
+    "0056.TW": {"name": "元大高股息", "avg_cost": 35.78, "shares": 1650},
+    "006208.TW": {"name": "富邦台50", "avg_cost": 109.81, "shares": 525},
+    "00679B.TW": {"name": "元大美債20年", "avg_cost": 28.0, "shares": 2365},
 }
 
 
 
+# ... (保留原本的 import 與 CORS 設定)
 @app.get("/api/stocks")
-
 def get_stocks():
-    
     results = []
+    # 填入你的投資均價與股數，讓損益不再是 undefined
+    MY_PORTFOLIO = {
+        "0050.TW": {"name": "元大台灣50", "avg": 50.99, "shares": 2170},
+        "0056.TW": {"name": "元大高股息", "avg": 35.78, "shares": 1650},
+        "006208.TW": {"name": "富邦台50", "avg": 109.81, "shares": 525},
+        "00679B.TW": {"name": "元大美債20年", "avg": 28.0, "shares": 2365}
+    }
+
     for symbol, info in MY_PORTFOLIO.items():
         try:
             stock = yf.Ticker(symbol)
-            # 抓取歷史至今所有數據
             hist_all = stock.history(period="max")
             if hist_all.empty: continue
             
-            # 定義不同時間段 (交易日約略計算)
+            # 定義時間切片 (週: 5, 三月: 63)
             hist_1y = hist_all.tail(252)
             hist_6m = hist_all.tail(126)
-            hist_3m = hist_all.tail(63)  # 近三個月
-            hist_1w = hist_all.tail(5)   # 近一週
+            hist_3m = hist_all.tail(63)
+            hist_1w = hist_all.tail(5)
             
             current_price = hist_all['Close'].iloc[-1]
-            prev_close = hist_all['Close'].iloc[-2]
+            prev_price = hist_all['Close'].iloc[-2]
             
-            # 走勢圖數據：取最近 30 天的收盤價
-            sparkline_data = hist_all['Close'].tail(30).tolist()
-            
+            # 損益計算
+            profit_pct = ((current_price - info['avg']) / info['avg']) * 100
+            current_value = current_price * info['shares']
+
             results.append({
                 "symbol": symbol,
                 "name": info['name'],
                 "price": round(current_price, 2),
-                "change_daily": round(((current_price - prev_close) / prev_close) * 100, 2),
-                "volume": int(hist_all['Volume'].iloc[-1]),
-                # 高低點網格數據
-                "max_1w": round(hist_1w['High'].max(), 2),
-                "min_1w": round(hist_1w['Low'].min(), 2),
-                "max_3m": round(hist_3m['High'].max(), 2),
-                "min_3m": round(hist_3m['Low'].min(), 2),
-                "max_6m": round(hist_6m['High'].max(), 2),
-                "min_6m": round(hist_6m['Low'].min(), 2),
-                "max_1y": round(hist_1y['High'].max(), 2),
-                "min_1y": round(hist_1y['Low'].min(), 2),
-                "sparkline": sparkline_data
+                "change_daily": round(((current_price - prev_price) / prev_price) * 100, 2),
+                "profit_pct": round(profit_pct, 2),
+                "max_1w": round(hist_1w['High'].max(), 2), "min_1w": round(hist_1w['Low'].min(), 2),
+                "max_3m": round(hist_3m['High'].max(), 2), "min_3m": round(hist_3m['Low'].min(), 2),
+                "max_6m": round(hist_6m['High'].max(), 2), "min_6m": round(hist_6m['Low'].min(), 2),
+                "max_1y": round(hist_1y['High'].max(), 2), "min_1y": round(hist_1y['Low'].min(), 2),
+                "sparkline": hist_all['Close'].tail(30).tolist(), # 最近 30 天數據
+                "market_value": round(current_value, 0)
             })
-            
-        except Exception as e:
-            print(f"Error {symbol}: {e}")
-            
+        except Exception as e: print(f"Error {symbol}: {e}")
     return results
