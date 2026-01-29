@@ -41,3 +41,7 @@ tqdm==4.67.1
 typing_extensions==4.15.0
 urllib3==2.6.3
 yt-dlp==2025.12.8
+fastapi
+uvicorn
+yfinance
+pandas

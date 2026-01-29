@@ -51,7 +51,13 @@
             container.innerHTML = ''; // 清空載入中文字
 
             stocks.forEach(stock => {
+const profitColor = stock.profit_pct >= 0 ? 'text-red-500' : 'text-green-500'; // 台股邏輯
+const signalBg = stock.signal === '突破關注' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-gray-700 text-gray-300';            
                 const card = `
+                <div class="flex justify-between mt-2">
+        <span class="text-xs ${profitColor} font-bold">損益：${stock.profit_pct}%</span>
+        <span class="px-2 py-0.5 rounded text-[10px] ${signalBg}">${stock.signal}</span>
+    </div>
                     <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 mb-6 shadow-xl">
                         <div class="flex justify-between items-center mb-4">
                             <div>
@@ -80,6 +86,8 @@
                         </div>
                     </div>
                 `;
+
+
                 container.innerHTML += card;
             });
         } catch (error) {
