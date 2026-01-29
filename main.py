@@ -13,7 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
 import pandas as pd
 
-
+# 在 results.append 之前，為每個時段準備 K線數據 (以 1週為例)
+def get_ohlc_data(df):
+    return df[['Open', 'High', 'Low', 'Close']].values.tolist()
 
 
 # 解決憑證問題
@@ -69,6 +71,8 @@ def get_stocks():
             profit_pct = ((current_price - info['avg']) / info['avg']) * 100
             current_value = current_price * info['shares']
 
+
+
             results.append({
                 "symbol": symbol,
                 "name": info['name'],
@@ -80,7 +84,11 @@ def get_stocks():
                 "max_6m": round(hist_6m['High'].max(), 2), "min_6m": round(hist_6m['Low'].min(), 2),
                 "max_1y": round(hist_1y['High'].max(), 2), "min_1y": round(hist_1y['Low'].min(), 2),
                 "sparkline": hist_all['Close'].tail(30).tolist(), # 最近 30 天數據
-                "market_value": round(current_value, 0)
+                "market_value": round(current_value, 0),
+                "ohlc_1w": get_ohlc_data(hist_1w),
+    "ohlc_3m": get_ohlc_data(hist_3m.tail(20)), # 取最近20筆避免太擠
+    "ohlc_6m": get_ohlc_data(hist_6m.tail(20)),
+    "ohlc_1y": get_ohlc_data(hist_1y.tail(20))
             })
         except Exception as e: print(f"Error {symbol}: {e}")
     return results

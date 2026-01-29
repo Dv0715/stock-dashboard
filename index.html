@@ -59,6 +59,35 @@ function drawSparkline(data) {
             </svg>`;
 }
 
+function drawCandlestick(ohlcData) {
+    if (!ohlcData || ohlcData.length === 0) return '';
+    const width = 60, height = 20;
+    const allValues = ohlcData.flat();
+    const min = Math.min(...allValues), max = Math.max(...allValues);
+    const range = max - min;
+    const candleWidth = width / ohlcData.length;
+
+    const candles = ohlcData.map((d, i) => {
+        const [open, high, low, close] = d;
+        const x = i * candleWidth + candleWidth / 2;
+        const color = close >= open ? '#ef4444' : '#22c55e'; // 紅漲綠跌
+        
+        // 映射座標 (SVG 座標 y 是向下增加的)
+        const getY = (val) => height - ((val - min) / range) * height;
+        
+        return `
+            <line x1="${x}" y1="${getY(high)}" x2="${x}" y2="${getY(low)}" stroke="${color}" stroke-width="1" />
+            <rect x="${i * candleWidth + 1}" y="${Math.min(getY(open), getY(close))}" 
+                  width="${candleWidth - 2}" height="${Math.abs(getY(open) - getY(close)) || 1}" fill="${color}" />
+        `;
+    }).join('');
+
+    return `<svg width="${width}" height="${height}" class="mx-auto mb-1">${candles}</svg>`;
+}
+
+
+
+
 async function refreshStocks() {
     try {
         const response = await fetch('https://stock-dashboard-3l75.onrender.com/api/stocks');
@@ -100,6 +129,22 @@ async function refreshStocks() {
                             <div class="mt-2 bg-gray-900/50 p-1 rounded">${drawSparkline(stock.sparkline)}</div>
                         </div>
                     </div>
+
+<div class="grid grid-cols-4 gap-2 py-3 border-t border-gray-700">
+        <div class="text-center">
+            <p class="text-[9px] text-gray-400 font-black mb-1">近一週</p>
+            ${drawCandlestick(stock.ohlc_1w)}
+            <p class="text-[10px] text-red-400">H ${stock.max_1w}</p>
+            <p class="text-[10px] text-green-400">L ${stock.min_1w}</p>
+        </div>
+        <div class="text-center border-x border-gray-700">
+            <p class="text-[9px] text-gray-400 font-black mb-1">近三月</p>
+            ${drawCandlestick(stock.ohlc_3m)}
+            <p class="text-[10px] text-red-400">H ${stock.max_3m}</p>
+            <p class="text-[10px] text-green-400">L ${stock.min_3m}</p>
+        </div>
+        </div>
+
 
                     <div class="mt-2 px-1 mb-4">
                         <div class="flex justify-between text-[8px] text-gray-500 mb-1">
