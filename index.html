@@ -42,7 +42,7 @@
 <script>
     async function refreshStocks() {
         try {
-            const response = await fetch('https://stock-dashboard-3l75.onrender.com');
+            const response = await fetch('https://stock-dashboard-3l75.onrender.com/api/stocks');
             const stocks = await response.json();
             
             const container = document.getElementById('stock-list');
@@ -100,3 +100,4 @@
 </body>
 
 </html>
+
